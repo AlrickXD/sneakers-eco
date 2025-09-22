@@ -45,6 +45,7 @@ export interface Order {
   shipping_city?: string
   shipping_postal_code?: string
   shipping_country?: string
+  customer_email?: string
   created_at: string
 }
 

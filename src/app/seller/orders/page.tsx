@@ -5,17 +5,23 @@ import { AuthGuard } from '@/components/auth/AuthGuard'
 import { supabase } from '@/lib/supabase'
 import { OrderWithItems } from '@/types/database'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
-import { ShoppingBag, Package, TrendingUp, AlertTriangle, CheckCircle, ArrowLeft } from 'lucide-react'
+import { ShoppingBag, Package, TrendingUp, AlertTriangle, CheckCircle, ArrowLeft, ChevronDown, ChevronUp, Mail, User } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { getFirstImage } from '@/utils/imageUtils'
 
+interface OrderWithUserDetails extends OrderWithItems {
+  user_email?: string
+  user_name?: string
+}
+
 export default function SellerOrdersPage() {
-  const [orders, setOrders] = useState<OrderWithItems[]>([])
+  const [orders, setOrders] = useState<OrderWithUserDetails[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [updatingOrder, setUpdatingOrder] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     loadOrders()
@@ -26,7 +32,7 @@ export default function SellerOrdersPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Utilisateur non connecté')
 
-      // Charger TOUTES les commandes (modèle centralisé)
+      // Charger les commandes directement avec customer_email depuis la DB
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select(`
@@ -40,7 +46,32 @@ export default function SellerOrdersPage() {
 
       if (ordersError) throw ordersError
 
-      setOrders(ordersData || [])
+      // Récupérer les noms d'affichage pour chaque commande
+      const ordersWithUserDetails = await Promise.all(
+        (ordersData || []).map(async (order) => {
+          try {
+            const { data: userData } = await supabase
+              .from('profiles')
+              .select('display_name')
+              .eq('id', order.user_id)
+              .single()
+
+            return {
+              ...order,
+              user_name: userData?.display_name || 'Nom non disponible',
+              user_email: order.customer_email || 'Email non disponible' // Utiliser customer_email de la DB
+            } as OrderWithUserDetails
+          } catch (err) {
+            return {
+              ...order,
+              user_name: 'Nom non disponible',
+              user_email: order.customer_email || 'Email non disponible'
+            } as OrderWithUserDetails
+          }
+        })
+      )
+
+      setOrders(ordersWithUserDetails)
     } catch (error: unknown) {
       console.error('Erreur lors du chargement des commandes:', error)
       const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
@@ -71,6 +102,18 @@ export default function SellerOrdersPage() {
     } finally {
       setUpdatingOrder(null)
     }
+  }
+
+  const toggleOrderExpansion = (orderId: string) => {
+    setExpandedOrders(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId)
+      } else {
+        newSet.add(orderId)
+      }
+      return newSet
+    })
   }
 
   const getStatusBadge = (status: string) => {
@@ -263,135 +306,215 @@ export default function SellerOrdersPage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              {/* En-tête du tableau */}
+              <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
+                <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-700">
+                  <div className="col-span-3">Commande</div>
+                  <div className="col-span-2">Client</div>
+                  <div className="col-span-2">Produits</div>
+                  <div className="col-span-1">Total</div>
+                  <div className="col-span-2">Statut</div>
+                  <div className="col-span-1">Date</div>
+                  <div className="col-span-1">Actions</div>
+                </div>
+              </div>
+
+              {/* Lignes des commandes */}
               {filteredOrders.map((order) => {
                 const orderTotal = order.order_items.reduce((sum, item) => 
                   sum + (item.unit_price_eur * item.quantity), 0
                 )
+                const isExpanded = expandedOrders.has(order.id)
+                const itemCount = order.order_items.reduce((sum, item) => sum + item.quantity, 0)
                 
                 return (
-                  <div key={order.id} className="bg-white border border-gray-200 rounded-lg p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-black">
-                          Commande #{order.id.slice(-8)}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          {new Date(order.created_at).toLocaleDateString('fr-FR', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-lg font-bold text-black">
-                          {orderTotal.toFixed(2)} €
-                        </span>
-                        {getStatusBadge(order.status)}
-                      </div>
-                    </div>
+                  <div key={order.id} className="border-b border-gray-200 last:border-b-0">
+                    {/* Rangée principale (compacte) */}
+                    <div className="px-6 py-4 hover:bg-gray-50 transition-colors">
+                      <div className="grid grid-cols-12 gap-4 items-center">
+                        {/* Commande */}
+                        <div className="col-span-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => toggleOrderExpansion(order.id)}
+                              className="p-1 hover:bg-gray-200 rounded transition-colors"
+                            >
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4 text-gray-500" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-gray-500" />
+                              )}
+                            </button>
+                            <div>
+                              <p className="font-semibold text-black">#{order.id.slice(-8)}</p>
+                              {order.needs_label && (
+                                <span className="inline-flex items-center gap-1 text-xs text-yellow-700 bg-yellow-100 px-2 py-1 rounded-full">
+                                  📦 Avec bordereau de livraison
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
 
-                    {/* Produits de la commande */}
-                    <div className="space-y-3 mb-4">
-                      {order.order_items.map((item) => (
-                        <div key={item.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                          <div className="h-16 w-16 relative">
-                            {item.product_variants.images && getFirstImage(item.product_variants.images) ? (
-                              <Image
-                                src={getFirstImage(item.product_variants.images) || '/placeholder.jpg'}
-                                alt={item.product_variants.name}
-                                fill
-                                className="object-cover rounded-lg"
-                              />
-                            ) : (
-                              <div className="h-full w-full bg-gray-200 rounded-lg flex items-center justify-center">
-                                <Package className="h-6 w-6 text-gray-400" />
-                              </div>
+                        {/* Client */}
+                        <div className="col-span-2">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-gray-400" />
+                            <div>
+                              <p className="text-sm font-medium text-black">
+                                {order.user_name || 'Nom indisponible'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Produits */}
+                        <div className="col-span-2">
+                          <p className="text-sm text-gray-900">
+                            {itemCount} article{itemCount > 1 ? 's' : ''}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {order.order_items.length} produit{order.order_items.length > 1 ? 's' : ''}
+                          </p>
+                        </div>
+
+                        {/* Total */}
+                        <div className="col-span-1">
+                          <p className="font-bold text-black">{orderTotal.toFixed(2)} €</p>
+                        </div>
+
+                        {/* Statut */}
+                        <div className="col-span-2">
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(order.status)}
+                            {order.status === 'paid' && (
+                              <button
+                                onClick={() => updateOrderStatus(order.id, 'fulfilled')}
+                                disabled={updatingOrder === order.id}
+                                className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+                              >
+                                {updatingOrder === order.id ? (
+                                  <LoadingSpinner size="sm" />
+                                ) : (
+                                  <>
+                                    <CheckCircle className="h-3 w-3" />
+                                    Expédier
+                                  </>
+                                )}
+                              </button>
                             )}
                           </div>
-                          <div className="flex-1">
-                            <h4 className="font-medium text-black">
-                              {item.product_variants.name}
-                            </h4>
-                            <p className="text-sm text-gray-600">
-                              Taille {item.product_variants.taille} • {item.product_variants.etat}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              SKU: {item.product_variants.sku}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              Quantité: {item.quantity} • {item.unit_price_eur.toFixed(2)} € chacun
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium text-black">
-                              {(item.unit_price_eur * item.quantity).toFixed(2)} €
-                            </p>
-                          </div>
                         </div>
-                      ))}
+
+                        {/* Date */}
+                        <div className="col-span-1">
+                          <p className="text-xs text-gray-600">
+                            {new Date(order.created_at).toLocaleDateString('fr-FR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: '2-digit'
+                            })}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(order.created_at).toLocaleTimeString('fr-FR', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="col-span-1">
+                          <button
+                            onClick={() => toggleOrderExpansion(order.id)}
+                            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            {isExpanded ? 'Réduire' : 'Détails'}
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Informations de livraison */}
-                    {(order.shipping_name || order.shipping_address_line1) && (
-                      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-center gap-2 text-blue-800 mb-2">
-                          <Package className="h-4 w-4" />
-                          <span className="font-medium">📍 Adresse de livraison</span>
-                        </div>
-                        <div className="text-sm text-blue-700">
-                          {order.shipping_name && (
-                            <p className="font-medium">{order.shipping_name}</p>
-                          )}
-                          {order.shipping_address_line1 && (
-                            <p>{order.shipping_address_line1}</p>
-                          )}
-                          {order.shipping_address_line2 && (
-                            <p>{order.shipping_address_line2}</p>
-                          )}
-                          {(order.shipping_postal_code || order.shipping_city) && (
-                            <p>
-                              {order.shipping_postal_code} {order.shipping_city}
-                            </p>
-                          )}
-                          {order.shipping_country && (
-                            <p className="font-medium mt-1">{order.shipping_country}</p>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                    {/* Détails étendus */}
+                    {isExpanded && (
+                      <div className="px-6 pb-6 bg-gray-50 border-t border-gray-200">
+                        <div className="pt-4 space-y-4">
+                          {/* Produits détaillés */}
+                          <div>
+                            <h4 className="font-medium text-black mb-3 flex items-center gap-2">
+                              <Package className="h-4 w-4" />
+                              Produits commandés
+                            </h4>
+                            <div className="space-y-3">
+                              {order.order_items.map((item) => (
+                                <div key={item.id} className="flex items-center gap-4 p-3 bg-white rounded-lg border border-gray-200">
+                                  <div className="h-16 w-16 relative flex-shrink-0">
+                                    {item.product_variants.images && getFirstImage(item.product_variants.images) ? (
+                                      <Image
+                                        src={getFirstImage(item.product_variants.images) || '/placeholder.jpg'}
+                                        alt={item.product_variants.name}
+                                        fill
+                                        className="object-cover rounded-lg"
+                                      />
+                                    ) : (
+                                      <div className="h-full w-full bg-gray-200 rounded-lg flex items-center justify-center">
+                                        <Package className="h-6 w-6 text-gray-400" />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex-1">
+                                    <h5 className="font-medium text-black">{item.product_variants.name}</h5>
+                                    <p className="text-sm text-gray-600">
+                                      Taille {item.product_variants.taille} • {item.product_variants.etat}
+                                    </p>
+                                    <p className="text-xs text-gray-500">SKU: {item.product_variants.sku}</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-medium text-black">
+                                      {item.quantity} × {item.unit_price_eur.toFixed(2)} €
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                      = {(item.unit_price_eur * item.quantity).toFixed(2)} €
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
 
-                    {/* Indication étiquette */}
-                    {order.needs_label && (
-                      <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <div className="flex items-center gap-2 text-yellow-800">
-                          <Package className="h-4 w-4" />
-                          <span className="font-medium">📦 Envoyez un bordereau</span>
-                        </div>
-                        <p className="text-sm text-yellow-700 mt-1">
-                          Le client a demandé à recevoir un bordereau d'envoi avec cette commande.
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    {order.status === 'paid' && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => updateOrderStatus(order.id, 'fulfilled')}
-                          disabled={updatingOrder === order.id}
-                          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
-                        >
-                          {updatingOrder === order.id ? (
-                            <LoadingSpinner size="sm" />
-                          ) : (
-                            <CheckCircle className="h-4 w-4" />
+                          {/* Informations de livraison et email */}
+                          {(order.shipping_name || order.shipping_address_line1) && (
+                            <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg">
+                              <h4 className="font-medium text-gray-800 mb-1 flex items-center gap-2 text-sm">
+                                <Package className="h-3 w-3" />
+                                📍 Adresse de livraison
+                              </h4>
+                              <div className="text-xs text-gray-700 space-y-0.5">
+                                {order.shipping_name && (
+                                  <p className="font-medium text-gray-900">{order.shipping_name}</p>
+                                )}
+                                {order.shipping_address_line1 && <p>{order.shipping_address_line1}</p>}
+                                {order.shipping_address_line2 && <p>{order.shipping_address_line2}</p>}
+                                {(order.shipping_postal_code || order.shipping_city) && (
+                                  <p>{order.shipping_postal_code} {order.shipping_city}</p>
+                                )}
+                                {order.shipping_country && (
+                                  <p className="font-medium text-gray-900">{order.shipping_country}</p>
+                                )}
+                                {/* Email du client dans la section livraison */}
+                                {(order.customer_email || order.user_email) && (
+                                  <div className="flex items-center gap-1 pt-1 border-t border-gray-300 mt-2">
+                                    <Mail className="h-3 w-3 text-gray-500" />
+                                    <span className="font-medium text-gray-800">Email :</span>
+                                    <span className="text-gray-700">{order.customer_email || order.user_email}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           )}
-                          Marquer comme expédiée
-                        </button>
+
+                        </div>
                       </div>
                     )}
                   </div>

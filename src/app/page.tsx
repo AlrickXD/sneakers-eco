@@ -18,10 +18,6 @@ export default function HomePage() {
   const [error, setError] = useState('')
   const [currentSlide, setCurrentSlide] = useState(0)
   const [itemsPerSlide, setItemsPerSlide] = useState(4)
-  const [touchStart, setTouchStart] = useState<number | null>(null)
-  const [touchEnd, setTouchEnd] = useState<number | null>(null)
-  const [isMobile, setIsMobile] = useState(false)
-  const [autoSlideEnabled, setAutoSlideEnabled] = useState(false)
 
   useEffect(() => {
     loadProducts()
@@ -30,17 +26,11 @@ export default function HomePage() {
 
   useEffect(() => {
     const handleResize = () => {
-      const windowWidth = window.innerWidth
-      const mobile = windowWidth < 768
-      
-      setIsMobile(mobile)
-      setAutoSlideEnabled(true) // Auto-slide sur tous les écrans
-      
-      if (mobile) {
-        setItemsPerSlide(2) // 2 produits sur mobile
-      } else if (windowWidth < 1024) {
+      if (window.innerWidth < 768) {
+        setItemsPerSlide(1)
+      } else if (window.innerWidth < 1024) {
         setItemsPerSlide(2)
-      } else if (windowWidth < 1280) {
+      } else if (window.innerWidth < 1280) {
         setItemsPerSlide(3)
       } else {
         setItemsPerSlide(4)
@@ -126,33 +116,12 @@ export default function HomePage() {
 
   const totalSlides = Math.ceil(products.length / itemsPerSlide)
 
-  // Auto-slide uniquement sur mobile
-  useEffect(() => {
-    if (!autoSlideEnabled || totalSlides <= 1) return
-
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % totalSlides)
-    }, 4000) // Change de slide toutes les 4 secondes
-
-    return () => clearInterval(interval)
-  }, [autoSlideEnabled, totalSlides])
-
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % totalSlides)
-    // Arrêter temporairement l'auto-slide après interaction manuelle
-    if (autoSlideEnabled) {
-      setAutoSlideEnabled(false)
-      setTimeout(() => setAutoSlideEnabled(true), 8000) // Reprendre après 8s
-    }
   }
 
   const prevSlide = () => {
     setCurrentSlide((prev) => (prev - 1 + totalSlides) % totalSlides)
-    // Arrêter temporairement l'auto-slide après interaction manuelle
-    if (autoSlideEnabled) {
-      setAutoSlideEnabled(false)
-      setTimeout(() => setAutoSlideEnabled(true), 8000) // Reprendre après 8s
-    }
   }
 
   const getCurrentProducts = () => {
@@ -161,35 +130,9 @@ export default function HomePage() {
     return products.slice(start, end)
   }
 
-  // Distance minimale pour déclencher un swipe
-  const minSwipeDistance = 50
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null)
-    setTouchStart(e.targetTouches[0].clientX)
-  }
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX)
-  }
-
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return
-    const distance = touchStart - touchEnd
-    const isLeftSwipe = distance > minSwipeDistance
-    const isRightSwipe = distance < -minSwipeDistance
-
-    if (isLeftSwipe && currentSlide < totalSlides - 1) {
-      nextSlide()
-    }
-    if (isRightSwipe && currentSlide > 0) {
-      prevSlide()
-    }
-  }
-
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
     )
@@ -197,7 +140,7 @@ export default function HomePage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">Erreur: {error}</p>
           <button
@@ -214,122 +157,32 @@ export default function HomePage() {
   return (
     <div className="bg-white">
       {/* Hero Section */}
-      <section className="relative overflow-hidden text-white">
-        {/* Image de fond */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: 'url(/B.jpg)',
-          }}
-        />
-        {/* Couche transparente */}
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
-        
-        {/* Contenu */}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+      <section className="relative bg-black text-white">
+        <div className="absolute inset-0">
+          <div className="w-full h-full bg-gradient-to-r from-black via-black/80 to-transparent" />
+        </div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
           <div className="max-w-4xl">
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
               PÈRE2CHAUSSURES
             </h1>
-            <p className="text-xl text-gray-200 mb-8 backdrop-blur-sm bg-black/20 rounded-lg p-4 inline-block">
-              Le site <span className="text-green-400 font-semibold">éco-responsable</span> pour les chaussures. 
+            <p className="text-xl text-gray-300 mb-8">
+              La marketplace éco-responsable pour les chaussures. 
               Découvrez des modèles neufs et d&apos;occasion à prix réduits.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
                 href="/products?condition=new"
-                className="bg-white/90 text-black px-8 py-4 rounded-lg font-semibold text-center hover:bg-white transition-colors backdrop-blur-sm shadow-lg"
+                className="bg-white text-black px-8 py-4 rounded-lg font-semibold text-center hover:bg-gray-200 transition-colors"
               >
                 Découvrir le neuf
               </Link>
               <Link
                 href="/products?condition=secondhand"
-                className="border-2 border-white/80 text-white px-8 py-4 rounded-lg font-semibold text-center hover:bg-white/90 hover:text-black transition-colors backdrop-blur-sm bg-white/10"
+                className="border border-white text-white px-8 py-4 rounded-lg font-semibold text-center hover:bg-white hover:text-black transition-colors"
               >
                 Seconde main
               </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Section éco-responsable */}
-      <section className="py-20 relative overflow-hidden">
-        {/* Image de fond */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: 'url(/A.jpg)',
-          }}
-        />
-        {/* Couche transparente */}
-        <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px]" />
-        
-        {/* Contenu */}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-4xl mx-auto">
-            <div className="inline-flex items-center gap-3 bg-green-100/90 text-green-800 px-4 py-2 rounded-full text-sm font-medium mb-6 backdrop-blur-sm">
-              <span className="text-lg">🌱</span>
-              Programme Seconde Main
-            </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 leading-tight">
-              Et si vos anciennes chaussures avaient encore 
-              <span className="text-green-600"> un rôle à jouer ?</span>
-            </h2>
-            <p className="text-xl text-gray-700 mb-10 max-w-3xl mx-auto">
-              Chez <span className="font-semibold text-gray-900">Père2Chaussure</span>, grâce à notre programme "seconde main" chaque paire compte
-            </p>
-            
-            <div className="grid md:grid-cols-2 gap-6 mb-10">
-              {/* Card 1 - Reconditionnement */}
-              <div className="group bg-white/85 backdrop-blur-sm rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-green-100/50">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-lg flex items-center justify-center shadow-lg">
-                    <span className="text-xl">♻️</span>
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900">Encore en forme ?</h3>
-                </div>
-                <p className="text-gray-700 leading-relaxed mb-3 text-sm">
-                  Nous les reconditionnons et vous gagnez un <span className="font-semibold text-green-600">code de réduction proportionnel</span> à leur valeur, jusqu'à <span className="font-bold text-green-700">20%</span>.
-                </p>
-                <div className="bg-green-50/80 rounded-lg p-3 border border-green-200/50">
-                  <p className="text-xs text-green-800">
-                    💡 <span className="font-medium">Astuce :</span> Plus la paire est précieuse, plus vous êtes récompensé (cochez l'option écoresponsable lors de votre prochain achat).
-                  </p>
-                </div>
-              </div>
-
-              {/* Card 2 - Recyclage */}
-              <div className="group bg-white/85 backdrop-blur-sm rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-green-100/50">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg">
-                    <span className="text-xl">🔄</span>
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900">Trop usées ?</h3>
-                </div>
-                <p className="text-gray-700 leading-relaxed mb-3 text-sm">
-                  Pas de souci : nous les recyclons pour créer de nouvelles matières utiles.
-                </p>
-                <div className="bg-blue-50/80 rounded-lg p-3 border border-blue-200/50">
-                  <p className="text-xs text-blue-800 font-medium">
-                    🌍 Rien ne se perd, tout se transforme
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Résultat final */}
-            <div className="bg-gradient-to-r from-green-600/90 to-emerald-600/90 rounded-xl p-6 text-white shadow-2xl backdrop-blur-sm">
-              <div className="flex items-center justify-center gap-2 mb-3">
-                <span className="text-2xl">✨</span>
-                <h3 className="text-xl font-bold">Le résultat</h3>
-              </div>
-              <p className="text-base leading-relaxed max-w-2xl mx-auto">
-                Vous <span className="font-semibold">faites des économies</span>, vos chaussures trouvent une 
-                <span className="font-semibold"> seconde vie</span>, et ensemble nous 
-                <span className="font-semibold"> réduisons les déchets</span>. 
-                Un geste simple pour un impact durable ! 🌱
-              </p>
             </div>
           </div>
         </div>
@@ -355,34 +208,29 @@ export default function HomePage() {
               <p className="text-gray-600">Aucun produit disponible pour le moment.</p>
             </div>
           ) : (
-            <div className="relative px-4 sm:px-8 md:px-16">
-              {/* Navigation du slider - toujours visible avec auto-slide */}
+            <div className="relative px-16">
+              {/* Navigation du slider */}
               {totalSlides > 1 && (
                 <>
                   <button
                     onClick={prevSlide}
-                    className="absolute -left-1 sm:-left-4 md:-left-6 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-2 sm:p-3 md:p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border border-gray-200"
+                    className="absolute -left-6 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border border-gray-200"
                     disabled={currentSlide === 0}
                   >
-                    <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-black" />
+                    <ChevronLeft className="h-6 w-6 text-black" />
                   </button>
                   <button
                     onClick={nextSlide}
-                    className="absolute -right-1 sm:-right-4 md:-right-6 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-2 sm:p-3 md:p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border border-gray-200"
+                    className="absolute -right-6 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border border-gray-200"
                     disabled={currentSlide === totalSlides - 1}
                   >
-                    <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-black" />
+                    <ChevronRight className="h-6 w-6 text-black" />
                   </button>
                 </>
               )}
 
               {/* Conteneur du slider */}
-              <div 
-                className="overflow-hidden"
-                onTouchStart={onTouchStart}
-                onTouchMove={onTouchMove}
-                onTouchEnd={onTouchEnd}
-              >
+              <div className="overflow-hidden">
                 <div 
                   className="flex transition-transform duration-500 ease-in-out"
                   style={{ transform: `translateX(-${currentSlide * 100}%)` }}
@@ -392,7 +240,7 @@ export default function HomePage() {
                       key={slideIndex}
                       className="w-full flex-shrink-0"
                     >
-                      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {products.slice(slideIndex * itemsPerSlide, (slideIndex + 1) * itemsPerSlide).map((product) => (
                           <ProductCard
                             key={product.product_id}
@@ -408,19 +256,12 @@ export default function HomePage() {
 
               {/* Indicateurs de slide */}
               {totalSlides > 1 && (
-                <div className="flex justify-center mt-6 sm:mt-8 space-x-2">
+                <div className="flex justify-center mt-8 space-x-2">
                   {Array.from({ length: totalSlides }).map((_, index) => (
                     <button
                       key={index}
-                      onClick={() => {
-                        setCurrentSlide(index)
-                        // Arrêter temporairement l'auto-slide après interaction manuelle
-                        if (autoSlideEnabled) {
-                          setAutoSlideEnabled(false)
-                          setTimeout(() => setAutoSlideEnabled(true), 8000) // Reprendre après 8s
-                        }
-                      }}
-                      className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full transition-colors duration-300 touch-manipulation ${
+                      onClick={() => setCurrentSlide(index)}
+                      className={`w-3 h-3 rounded-full transition-colors duration-300 ${
                         index === currentSlide ? 'bg-black' : 'bg-gray-300 hover:bg-gray-400'
                       }`}
                     />
@@ -432,6 +273,78 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Catégories */}
+      <section className="py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-3 gap-8 sm:gap-12 max-w-3xl mx-auto">
+            {[
+              { name: 'Homme', icon: '👨', filter: 'gender=homme' },
+              { name: 'Femme', icon: '👩', filter: 'gender=femme' },
+              { name: 'Enfant', icon: '🧒', filter: 'gender=enfant' }
+            ].map((category) => (
+              <Link
+                key={category.name}
+                href={`/products?${category.filter}`}
+                className="group"
+              >
+                <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center group-hover:from-gray-200 group-hover:to-gray-300 transition-all duration-300 shadow-sm group-hover:shadow-md">
+                  <span className="text-4xl group-hover:scale-110 transition-transform duration-300">
+                    {category.icon}
+                  </span>
+                </div>
+                <h3 className="text-center mt-4 font-semibold text-black text-lg group-hover:text-gray-700 transition-colors">
+                  {category.name}
+                </h3>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Section éco-responsable */}
+      <section className="py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto">
+            <h2 className="text-3xl font-bold text-black mb-6">
+              Mode éco-responsable
+            </h2>
+            <p className="text-lg text-gray-600 mb-8">
+              Chaque achat sur Père2Chaussures contribue à réduire l&apos;impact environnemental 
+              de l&apos;industrie de la mode. Donnez une seconde vie aux chaussures et 
+              participez à l&apos;économie circulaire.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">♻️</span>
+                </div>
+                <h3 className="font-semibold text-black mb-2">Économie circulaire</h3>
+                <p className="text-gray-600">
+                  Prolongez la durée de vie des chaussures
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">🌱</span>
+                </div>
+                <h3 className="font-semibold text-black mb-2">Impact réduit</h3>
+                <p className="text-gray-600">
+                  Moins de production, moins de déchets
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">💰</span>
+                </div>
+                <h3 className="font-semibold text-black mb-2">Prix accessibles</h3>
+                <p className="text-gray-600">
+                  Chaussures de qualité à prix réduits
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   )
 }

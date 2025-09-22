@@ -99,6 +99,7 @@ export async function POST(req: Request) {
       console.log('Session shipping_details:', session.shipping_details)
       console.log('Session shipping:', session.shipping)
       console.log('Customer details:', customerDetails)
+      console.log('Customer email:', customerDetails?.email)
       console.log('Shipping details final:', shippingDetails)
       console.log('Final shipping info:', finalShippingInfo)
       console.log('Final name:', finalShippingInfo?.name)
@@ -168,7 +169,8 @@ export async function POST(req: Request) {
             p_shipping_address_line2: finalShippingInfo?.address?.line2 || null,
             p_shipping_city: finalShippingInfo?.address?.city || null,
             p_shipping_postal_code: finalShippingInfo?.address?.postal_code || null,
-            p_shipping_country: finalShippingInfo?.address?.country || null
+            p_shipping_country: finalShippingInfo?.address?.country || null,
+            p_customer_email: customerDetails?.email || null
           }
           
           console.log('📦 Paramètres de livraison envoyés à la fonction:', shippingParams)
