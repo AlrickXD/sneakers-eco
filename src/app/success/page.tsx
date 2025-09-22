@@ -29,26 +29,91 @@ function SuccessContent() {
       }
 
       try {
-        // Récupérer la commande la plus récente de l'utilisateur
-        const { data: orderData, error: orderError } = await supabase
+        console.log('🔍 Recherche de commande avec session_id:', sessionId, 'pour user:', user.id)
+        
+        // Recherche de la commande spécifique avec stripe_session_id
+        console.log('🔍 Recherche avec stripe_session_id:', sessionId)
+        const { data: simpleOrderData, error: simpleOrderError } = await supabase
           .from('orders')
-          .select(`
-            *,
-            order_items (
-              *,
-              product_variants (*)
-            )
-          `)
+          .select('*')
           .eq('user_id', user.id)
-          .eq('status', 'paid')
+          .eq('stripe_session_id', sessionId)
           .order('created_at', { ascending: false })
           .limit(1)
+
+        console.log('📊 Résultat requête simple:', { simpleOrderData, simpleOrderError })
+
+        if (simpleOrderError) {
+          throw simpleOrderError
+        }
+
+        let orderData = null
+        let orderError = null
+
+        if (simpleOrderData && simpleOrderData.length > 0) {
+          // Si on trouve la commande, récupérer les détails complets
+          const orderId = simpleOrderData[0].id
+          console.log('📦 Récupération des détails pour commande:', orderId)
+          
+          const { data: fullOrderData, error: fullOrderError } = await supabase
+            .from('orders')
+            .select(`
+              *,
+              order_items (
+                *,
+                product_variants (*)
+              )
+            `)
+            .eq('id', orderId)
+            .single()
+
+          orderData = fullOrderData ? [fullOrderData] : null
+          orderError = fullOrderError
+        } else {
+          // Pas de commande trouvée avec ce session_id
+          orderData = []
+          orderError = null
+        }
 
         if (orderError) {
           console.error('Erreur lors du chargement de la commande:', orderError)
           setError('Impossible de charger les détails de la commande')
         } else if (orderData && orderData.length > 0) {
           setOrder(orderData[0] as OrderWithItems)
+        } else {
+          // Fallback : si la commande avec session_id n'est pas trouvée, 
+          // récupérer la commande la plus récente (le webhook peut prendre du temps)
+          console.log('⏱️ Commande avec session_id non trouvée, récupération de la plus récente...')
+          
+          try {
+            const { data: fallbackOrderData, error: fallbackError } = await supabase
+              .from('orders')
+              .select(`
+                *,
+                order_items (
+                  *,
+                  product_variants (*)
+                )
+              `)
+              .eq('user_id', user.id)
+              .eq('status', 'paid')
+              .order('created_at', { ascending: false })
+              .limit(1)
+
+            if (fallbackError) {
+              console.error('❌ Erreur fallback:', fallbackError)
+              setError('Impossible de charger les détails de la commande')
+            } else if (fallbackOrderData && fallbackOrderData.length > 0) {
+              console.log('✅ Commande fallback trouvée:', fallbackOrderData[0].id)
+              setOrder(fallbackOrderData[0] as OrderWithItems)
+            } else {
+              console.log('❌ Aucune commande trouvée')
+              setError('Aucune commande trouvée. Le paiement est peut-être en cours de traitement.')
+            }
+          } catch (fallbackErr) {
+            console.error('❌ Erreur dans le fallback:', fallbackErr)
+            setError('Erreur lors du chargement des détails de commande')
+          }
         }
 
         // Vider le panier après un achat réussi (une seule fois)
@@ -66,8 +131,44 @@ function SuccessContent() {
         }
 
       } catch (error) {
-        console.error('Erreur:', error)
-        setError('Erreur lors du chargement des détails')
+        console.error('❌ Erreur générale dans loadOrderDetails:', error)
+        console.error('Type d\'erreur:', typeof error)
+        console.error('Erreur détaillée:', JSON.stringify(error, null, 2))
+        
+        // Si c'est une erreur Supabase vide, essayons de récupérer n'importe quelle commande récente
+        console.log('🔄 Tentative de récupération d\'urgence...')
+        try {
+          const { data: emergencyData } = await supabase
+            .from('orders')
+            .select(`
+              *,
+              order_items (
+                *,
+                product_variants (
+                  sku,
+                  name,
+                  prix_eur,
+                  images,
+                  taille,
+                  etat
+                )
+              )
+            `)
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+
+          if (emergencyData && emergencyData.length > 0) {
+            console.log('✅ Récupération d\'urgence réussie:', emergencyData[0])
+            setOrder(emergencyData[0] as OrderWithItems)
+            setError('') // Effacer l'erreur si on a réussi à récupérer des données
+          } else {
+            setError('Impossible de charger les détails de la commande. Consultez vos commandes dans votre compte.')
+          }
+        } catch (emergencyError) {
+          console.error('❌ Échec de la récupération d\'urgence:', emergencyError)
+          setError('Problème de connexion à la base de données. Veuillez consulter votre compte pour voir vos commandes.')
+        }
       } finally {
         setLoading(false)
       }

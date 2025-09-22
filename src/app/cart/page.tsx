@@ -13,6 +13,7 @@ export default function CartPage() {
   const { user, profile } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [needsLabel, setNeedsLabel] = useState(false)
 
   const handleCheckout = async () => {
     // Vérifier si l'utilisateur est un vendeur ou admin
@@ -45,7 +46,8 @@ export default function CartPage() {
         },
         body: JSON.stringify({
           items: checkoutItems,
-          userId: user.id
+          userId: user.id,
+          needsLabel
         }),
       })
 
@@ -251,13 +253,36 @@ export default function CartPage() {
                   </Link>
                 </div>
               ) : (
-                <button
-                  onClick={handleCheckout}
-                  disabled={loading || items.length === 0}
-                  className="w-full bg-black text-white py-4 rounded-lg font-semibold hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {loading ? 'Préparation...' : user ? 'Passer commande' : 'Se connecter pour commander'}
-                </button>
+                <>
+                  {/* Case à cocher éco-responsable */}
+                  <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg shadow-sm">
+                    <div className="flex items-start gap-4">
+                      <input
+                        type="checkbox"
+                        id="needsLabel"
+                        checked={needsLabel}
+                        onChange={(e) => setNeedsLabel(e.target.checked)}
+                        className="mt-1 h-5 w-5 text-green-600 border-green-300 rounded focus:ring-green-500 focus:ring-2"
+                      />
+                      <div className="flex-1">
+                        <label htmlFor="needsLabel" className="text-base font-semibold text-green-800 cursor-pointer block mb-1">
+                          🌱 Option éco-responsable
+                        </label>
+                        <p className="text-sm text-green-700 cursor-pointer">
+                          Renvoyer une ancienne paire de chaussures et obtenez un code de réduction !
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={handleCheckout}
+                    disabled={loading || items.length === 0}
+                    className="w-full bg-black text-white py-4 rounded-lg font-semibold hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {loading ? 'Préparation...' : user ? 'Passer commande' : 'Se connecter pour commander'}
+                  </button>
+                </>
               )}
 
               <div className="mt-4 text-center">

@@ -7,9 +7,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 export async function POST(req: Request) {
   try {
-    const { items, userId } = await req.json() as {
+    const { items, userId, needsLabel } = await req.json() as {
       items: { sku: string; quantity: number }[]
       userId?: string
+      needsLabel?: boolean
     }
 
     if (!items || items.length === 0) {
@@ -93,7 +94,8 @@ export async function POST(req: Request) {
       cancel_url: `${process.env.SITE_URL}/cart`,
       metadata: {
         cart: JSON.stringify(items), // Stocker les items pour le webhook
-        user_id: userId || '' // Stocker l'ID utilisateur pour créer la commande
+        user_id: userId || '', // Stocker l'ID utilisateur pour créer la commande
+        needs_label: needsLabel ? 'true' : 'false' // Stocker l'information sur l'étiquette
       },
       shipping_address_collection: {
         allowed_countries: ['FR', 'BE', 'CH', 'LU', 'MC']

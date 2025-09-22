@@ -335,6 +335,19 @@ export default function SellerOrdersPage() {
                       ))}
                     </div>
 
+                    {/* Indication étiquette */}
+                    {order.needs_label && (
+                      <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-yellow-800">
+                          <Package className="h-4 w-4" />
+                          <span className="font-medium">📦 Envoyez un bordereau</span>
+                        </div>
+                        <p className="text-sm text-yellow-700 mt-1">
+                          Le client a demandé à recevoir un bordereau d'envoi avec cette commande.
+                        </p>
+                      </div>
+                    )}
+
                     {/* Actions */}
                     {order.status === 'paid' && (
                       <div className="flex gap-2">

@@ -38,6 +38,7 @@ export interface Order {
   user_id: string
   status: 'pending' | 'paid' | 'canceled' | 'fulfilled'
   total_eur: number
+  needs_label?: boolean
   created_at: string
 }
 

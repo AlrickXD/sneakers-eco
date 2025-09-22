@@ -75,10 +75,12 @@ export async function POST(req: Request) {
       // Récupérer les données depuis les métadonnées
       const cartData = session.metadata?.cart
       const userId = session.metadata?.user_id
+      const needsLabel = session.metadata?.needs_label === 'true'
       
       console.log('=== METADATA DEBUG ===')
       console.log('Cart data raw:', cartData)
       console.log('User ID raw:', userId)
+      console.log('Needs label:', needsLabel)
       
       if (!cartData) {
         console.error('❌ ERREUR: Pas de données de panier dans les métadonnées')
@@ -137,11 +139,13 @@ export async function POST(req: Request) {
         
         try {
           console.log('🔄 Tentative avec create_order_from_webhook...')
-          // Utiliser la nouvelle fonction pour créer la commande (sans session_id pour l'instant)
+          // Utiliser la nouvelle fonction pour créer la commande avec le champ needs_label
           const { data: orderId, error: orderError } = await admin.rpc('create_order_from_webhook', {
             p_user_id: userId,
             p_total_eur: totalAmount,
-            p_items: items
+            p_items: items,
+            p_stripe_session_id: session.id,
+            p_needs_label: needsLabel
           })
 
           if (orderError) {
@@ -161,7 +165,8 @@ export async function POST(req: Request) {
               user_id: userId,
               status: 'paid',
               total_eur: totalAmount,
-              stripe_session_id: session.id
+              stripe_session_id: session.id,
+              needs_label: needsLabel
             })
             .select()
             .single()
