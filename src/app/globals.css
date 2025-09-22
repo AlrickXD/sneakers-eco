@@ -24,3 +24,52 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Correction des couleurs pour les inputs */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+textarea,
+select {
+  color: #000000 !important; /* Forcer le texte noir */
+}
+
+input[type="text"]::placeholder,
+input[type="email"]::placeholder,
+input[type="password"]::placeholder,
+input[type="number"]::placeholder,
+textarea::placeholder {
+  color: #9CA3AF !important; /* Placeholder gris clair */
+  opacity: 1;
+}
+
+/* S'assurer que le texte reste noir même en focus */
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+textarea:focus,
+select:focus {
+  color: #000000 !important;
+}
+
+/* Inputs désactivés */
+input:disabled,
+textarea:disabled,
+select:disabled {
+  color: #6B7280 !important; /* Gris plus foncé pour les champs désactivés */
+  background-color: #F9FAFB !important;
+}
+
+/* Améliorer la lisibilité des options de select */
+select option {
+  color: #000000 !important;
+  background-color: #ffffff !important;
+}
+
+/* Correction pour les inputs de type checkbox et radio */
+input[type="checkbox"],
+input[type="radio"] {
+  color: initial !important;
+}
