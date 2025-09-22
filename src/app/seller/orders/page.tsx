@@ -335,6 +335,35 @@ export default function SellerOrdersPage() {
                       ))}
                     </div>
 
+                    {/* Informations de livraison */}
+                    {(order.shipping_name || order.shipping_address_line1) && (
+                      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-blue-800 mb-2">
+                          <Package className="h-4 w-4" />
+                          <span className="font-medium">📍 Adresse de livraison</span>
+                        </div>
+                        <div className="text-sm text-blue-700">
+                          {order.shipping_name && (
+                            <p className="font-medium">{order.shipping_name}</p>
+                          )}
+                          {order.shipping_address_line1 && (
+                            <p>{order.shipping_address_line1}</p>
+                          )}
+                          {order.shipping_address_line2 && (
+                            <p>{order.shipping_address_line2}</p>
+                          )}
+                          {(order.shipping_postal_code || order.shipping_city) && (
+                            <p>
+                              {order.shipping_postal_code} {order.shipping_city}
+                            </p>
+                          )}
+                          {order.shipping_country && (
+                            <p className="font-medium mt-1">{order.shipping_country}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Indication étiquette */}
                     {order.needs_label && (
                       <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">

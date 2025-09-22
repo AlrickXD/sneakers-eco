@@ -70,6 +70,10 @@ export async function POST(req: Request) {
     console.log('Session metadata:', session.metadata)
     console.log('Session amount_total:', session.amount_total)
     console.log('Session payment_status:', session.payment_status)
+    console.log('=== SESSION COMPLETE DEBUG ===')
+    console.log('Session keys:', Object.keys(session))
+    console.log('Session customer_details:', session.customer_details)
+    console.log('Session customer:', session.customer)
 
     try {
       // Récupérer les données depuis les métadonnées
@@ -77,10 +81,28 @@ export async function POST(req: Request) {
       const userId = session.metadata?.user_id
       const needsLabel = session.metadata?.needs_label === 'true'
       
+      // Récupérer les informations de livraison depuis Stripe (plusieurs sources possibles)
+      const shippingDetails = session.shipping_details || session.shipping
+      const customerDetails = session.customer_details
+      
+      // Alternative : récupérer depuis customer_details si shipping_details n'existe pas
+      const finalShippingInfo = shippingDetails || {
+        name: customerDetails?.name,
+        address: customerDetails?.address
+      }
+      
       console.log('=== METADATA DEBUG ===')
       console.log('Cart data raw:', cartData)
       console.log('User ID raw:', userId)
       console.log('Needs label:', needsLabel)
+      console.log('=== SHIPPING DEBUG ===')
+      console.log('Session shipping_details:', session.shipping_details)
+      console.log('Session shipping:', session.shipping)
+      console.log('Customer details:', customerDetails)
+      console.log('Shipping details final:', shippingDetails)
+      console.log('Final shipping info:', finalShippingInfo)
+      console.log('Final name:', finalShippingInfo?.name)
+      console.log('Final address:', finalShippingInfo?.address)
       
       if (!cartData) {
         console.error('❌ ERREUR: Pas de données de panier dans les métadonnées')
@@ -139,13 +161,26 @@ export async function POST(req: Request) {
         
         try {
           console.log('🔄 Tentative avec create_order_from_webhook...')
-          // Utiliser la nouvelle fonction pour créer la commande avec le champ needs_label
+          
+          const shippingParams = {
+            p_shipping_name: finalShippingInfo?.name || null,
+            p_shipping_address_line1: finalShippingInfo?.address?.line1 || null,
+            p_shipping_address_line2: finalShippingInfo?.address?.line2 || null,
+            p_shipping_city: finalShippingInfo?.address?.city || null,
+            p_shipping_postal_code: finalShippingInfo?.address?.postal_code || null,
+            p_shipping_country: finalShippingInfo?.address?.country || null
+          }
+          
+          console.log('📦 Paramètres de livraison envoyés à la fonction:', shippingParams)
+          
+          // Utiliser la nouvelle fonction pour créer la commande avec les infos de livraison
           const { data: orderId, error: orderError } = await admin.rpc('create_order_from_webhook', {
             p_user_id: userId,
             p_total_eur: totalAmount,
             p_items: items,
             p_stripe_session_id: session.id,
-            p_needs_label: needsLabel
+            p_needs_label: needsLabel,
+            ...shippingParams
           })
 
           if (orderError) {
@@ -166,7 +201,13 @@ export async function POST(req: Request) {
               status: 'paid',
               total_eur: totalAmount,
               stripe_session_id: session.id,
-              needs_label: needsLabel
+              needs_label: needsLabel,
+              shipping_name: finalShippingInfo?.name || null,
+              shipping_address_line1: finalShippingInfo?.address?.line1 || null,
+              shipping_address_line2: finalShippingInfo?.address?.line2 || null,
+              shipping_city: finalShippingInfo?.address?.city || null,
+              shipping_postal_code: finalShippingInfo?.address?.postal_code || null,
+              shipping_country: finalShippingInfo?.address?.country || null
             })
             .select()
             .single()
